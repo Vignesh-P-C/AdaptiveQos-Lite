@@ -27,9 +27,11 @@ Objective 1, without a rewrite — just more parallel S1<->S4 paths.
 
 from mininet.topo import Topo
 from mininet.net import Mininet
+from functools import partial
 from mininet.node import OVSSwitch, RemoteController
 from mininet.link import TCLink
 from mininet.cli import CLI
+import time
 from mininet.log import setLogLevel, info
 
 # Default controller connection — matches where Ryu listens by default.
@@ -81,8 +83,7 @@ def build_net(num_middle_switches=2, use_remote_controller=True):
     """Build and return a Mininet object, wired to the Ryu controller
     unless use_remote_controller=False (useful for a pure-plumbing
     test with Mininet's own reference controller)."""
-    topo = RedundantPathTopo()
-    topo.build(num_middle_switches=num_middle_switches)
+    topo = RedundantPathTopo(num_middle_switches=num_middle_switches)
 
     if use_remote_controller:
         controller = RemoteController(
@@ -90,7 +91,7 @@ def build_net(num_middle_switches=2, use_remote_controller=True):
         )
         net = Mininet(
             topo=topo,
-            switch=OVSSwitch,
+            switch=partial(OVSSwitch, stp=True),
             controller=controller,
             link=TCLink,
             autoSetMacs=True,
@@ -105,6 +106,14 @@ def main():
     setLogLevel("info")
     net = build_net(num_middle_switches=2, use_remote_controller=True)
     net.start()
+
+    info("*** Enabling STP on all switches (Mininet's stp=True flag "
+         "doesn't reliably propagate on this OVS version)\n")
+    for switch in net.switches:
+        switch.cmd(f"ovs-vsctl set bridge {switch.name} stp_enable=true")
+
+    info("*** Waiting for STP to converge (~45s)...\n")
+    time.sleep(45)
 
     info("*** Week 1-2 milestone check: pingall\n")
     net.pingAll()
