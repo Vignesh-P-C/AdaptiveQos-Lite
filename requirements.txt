@@ -1,0 +1,9 @@
+# Controller + evaluation dependencies.
+# Mininet + Open vSwitch are NOT pip packages — install via apt on your
+# Ubuntu VM (see README.md "Environment setup").
+
+ryu==4.34                 # OpenFlow 1.3 controller framework
+eventlet==0.30.2          # pinned: newer eventlet breaks ryu's hub module
+pandas>=2.0               # evaluation/analyze_results.py (week 7-8+)
+matplotlib>=3.7           # evaluation/analyze_results.py figures (week 7-8+)
+flask>=2.3                # dashboard/app.py (week 9+)
