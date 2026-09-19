@@ -115,7 +115,7 @@ def main():
     info("*** Waiting for STP to converge (~45s)...\n")
     time.sleep(45)
 
-    info("*** Week 1-2 milestone check: pingall\n")
+    info("*** Connectivity check: pingall\n")
     net.pingAll()
 
     info("*** Dropping to CLI. Try: h1 ping h2, or iperf h1 h2\n")
