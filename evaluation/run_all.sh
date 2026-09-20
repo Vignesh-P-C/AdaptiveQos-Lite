@@ -16,7 +16,7 @@ for method in ecmp adaptiveqos; do
     ADAPTIVEQOS_SCENARIO=$scenario ryu-manager "${APPS[$method]}" &
     ryu_pid=$!
     sleep 3
-    python3 evaluation/run_scenarios.py "$scenario" --duration "$DURATION"
+    ADAPTIVEQOS_STP=0 python3 evaluation/run_scenarios.py "$scenario" --method "$method" --duration "$DURATION"
     kill "$ryu_pid" 2>/dev/null || true
     wait "$ryu_pid" 2>/dev/null || true
     sleep 2

@@ -5,9 +5,13 @@ through ecmp_fallback.out_port_for so port lookup is one code path.
 Reward feedback for real-time flows comes from telemetry's per-switch
 jitter, polled once a second for each path currently in use.
 
-Run:
+Like baselines/static_ecmp_only.py, this never floods -- so it needs
+BOTH redundant paths open at once (STP would permanently block one of
+them at the switch level, silently dropping any flow the agent or the
+ECMP hash routes onto it). Run with STP disabled:
+
     ryu-manager controller/main_app.py
-    sudo python3 topology/topo.py
+    ADAPTIVEQOS_STP=0 sudo python3 topology/topo.py
 """
 
 import os
@@ -132,7 +136,15 @@ class AdaptiveQoSLiteApp(app_manager.RyuApp):
 
     def _reward_loop(self):
         """Once a second, score every path currently assigned to a
-        real-time flow using the middle switch's telemetry jitter."""
+        real-time flow using the middle switch's telemetry jitter.
+
+        KNOWN LIMITATION (see README "Known issue"): this jitter comes
+        from OpenFlow echo-RTT on the controller<->switch control
+        channel, not the real data path, and has been observed to
+        counterintuitively drop under congestion. Treat agent decisions
+        as directionally useful, not validated, until this is replaced
+        with a real per-path data-plane probe (next step, per the
+        agent report)."""
         while True:
             hub.sleep(REWARD_POLL_SEC)
             for path in set(self.rt_paths.values()):

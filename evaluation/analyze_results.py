@@ -34,13 +34,28 @@ def load_optional(name, columns):
     return pd.read_csv(path)
 
 
+def realtime_rows(df):
+    """h1<->h2 ping-based rows -- the only reliable jitter/latency source.
+    telemetry.py's link:* rows use echo-RTT on the controller<->switch
+    control channel, which counterintuitively drops under congestion
+    (see README "Known issue"); those rows are throughput/loss only."""
+    return df[df["flow_id"] == "h1-h2-realtime"]
+
+
+def link_rows(df):
+    return df[df["flow_id"].astype(str).str.startswith("link:")]
+
+
 def performance_table(df):
-    table = df.groupby(["scenario", "method"]).agg(
+    lat_jit = realtime_rows(df).groupby(["scenario", "method"]).agg(
         jitter_ms=("jitter_ms", "mean"),
         latency_ms=("latency_ms", "mean"),
+    )
+    loss_tput = link_rows(df).groupby(["scenario", "method"]).agg(
         packet_loss_pct=("packet_loss_pct", "mean"),
         throughput_mbps=("throughput_mbps", "mean"),
-    ).reset_index()
+    )
+    table = lat_jit.join(loss_tput, how="outer").reset_index()
     os.makedirs(PROCESSED, exist_ok=True)
     table.to_csv(os.path.join(PROCESSED, "performance_summary.csv"), index=False)
     print(table.to_string(index=False))
@@ -50,7 +65,7 @@ def performance_table(df):
 def figure5_jitter_bar(table):
     pivot = table.pivot(index="scenario", columns="method", values="jitter_ms")
     ax = pivot.plot(kind="bar", figsize=(7, 4))
-    ax.set_ylabel("Mean jitter (ms)")
+    ax.set_ylabel("Mean jitter (ms, h1<->h2 ping)")
     ax.set_title("Jitter by scenario and method")
     plt.tight_layout()
     plt.savefig(os.path.join(FIGURES, "figure5_jitter_bar.png"))
@@ -58,7 +73,8 @@ def figure5_jitter_bar(table):
 
 
 def figure6_latency_line(df, scenario="heavy"):
-    subset = df[df["scenario"] == scenario]
+    subset = realtime_rows(df)
+    subset = subset[subset["scenario"] == scenario]
     if subset.empty:
         return
     fig, ax = plt.subplots(figsize=(8, 4))

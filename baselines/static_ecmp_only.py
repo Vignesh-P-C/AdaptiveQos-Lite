@@ -27,9 +27,10 @@ ARP is forwarded the same way (by its target IP) instead of being flooded.
 !! Port tables live in controller/ecmp_fallback.py (out_port_for) and
 !! must match topology/topo.py — verify with the mininet> `net` command.
 
-Run:
+Run (STP must be disabled -- see topology/topo.py -- or it blocks one
+of the two redundant paths and ECMP hashing onto it drops 100% of traffic):
     ryu-manager baselines/static_ecmp_only.py
-    sudo python3 topology/topo.py
+    ADAPTIVEQOS_STP=0 sudo python3 topology/topo.py
 """
 
 import os
