@@ -81,8 +81,7 @@ def build_net(num_middle_switches=2, use_remote_controller=True):
     """Build and return a Mininet object, wired to the Ryu controller
     unless use_remote_controller=False (useful for a pure-plumbing
     test with Mininet's own reference controller)."""
-    topo = RedundantPathTopo()
-    topo.build(num_middle_switches=num_middle_switches)
+  topo = RedundantPathTopo(num_middle_switches=num_middle_switches)
 
     if use_remote_controller:
         controller = RemoteController(
