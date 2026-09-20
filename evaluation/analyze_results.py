@@ -46,12 +46,31 @@ def link_rows(df):
     return df[df["flow_id"].astype(str).str.startswith("link:")]
 
 
+# No veth-backed emulated link in this testbed can plausibly exceed this;
+# an occasional bogus OVS port-stats delta (observed once per ~600 samples,
+# likely a stats-parsing glitch under this environment's Python 3.14 +
+# os_ken combo, since dt itself checks out normal at ~1s -- the byte-delta
+# read back was simply garbage) has produced single-row values in the
+# hundreds-of-trillions of Mbps, which a raw mean lets dominate the whole
+# scenario average. Drop those rather than change the statistic (median
+# across all link rows collapses toward zero, since most switch ports are
+# idle at any given instant -- it hides real throughput just as badly).
+PLAUSIBLE_THROUGHPUT_MBPS_MAX = 100_000
+
+
 def performance_table(df):
     lat_jit = realtime_rows(df).groupby(["scenario", "method"]).agg(
         jitter_ms=("jitter_ms", "mean"),
         latency_ms=("latency_ms", "mean"),
     )
-    loss_tput = link_rows(df).groupby(["scenario", "method"]).agg(
+    links = link_rows(df)
+    dropped = links[links["throughput_mbps"] > PLAUSIBLE_THROUGHPUT_MBPS_MAX]
+    if len(dropped):
+        print(f"Dropping {len(dropped)} implausible throughput sample(s) "
+              f"(> {PLAUSIBLE_THROUGHPUT_MBPS_MAX} Mbps) before averaging:")
+        print(dropped[["scenario", "method", "flow_id", "throughput_mbps"]].to_string(index=False))
+    links = links[links["throughput_mbps"] <= PLAUSIBLE_THROUGHPUT_MBPS_MAX]
+    loss_tput = links.groupby(["scenario", "method"]).agg(
         packet_loss_pct=("packet_loss_pct", "mean"),
         throughput_mbps=("throughput_mbps", "mean"),
     )
