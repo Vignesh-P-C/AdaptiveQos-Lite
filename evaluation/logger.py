@@ -78,12 +78,13 @@ class AgentInternalLogger:
     as it exists, without touching this file again."""
 
     COLUMNS = [
-        "timestamp", "flow_id", "candidate_paths", "chosen_path",
+        "timestamp", "scenario", "flow_id", "candidate_paths", "chosen_path",
         "reward", "arm_estimates",
     ]
 
-    def __init__(self):
+    def __init__(self, scenario="unlabeled"):
         _ensure_dir()
+        self.scenario = scenario
         self.path = os.path.join(DATA_RAW_DIR, "agent_internal_log.csv")
         new_file = not os.path.exists(self.path)
         self._fh = open(self.path, "a", newline="")
@@ -95,6 +96,7 @@ class AgentInternalLogger:
     def write_row(self, flow_id, candidate_paths, chosen_path, reward, arm_estimates):
         self._writer.writerow({
             "timestamp": time.time(),
+            "scenario": self.scenario,
             "flow_id": flow_id,
             "candidate_paths": candidate_paths,
             "chosen_path": chosen_path,

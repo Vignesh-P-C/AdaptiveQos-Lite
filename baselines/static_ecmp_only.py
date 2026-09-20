@@ -24,13 +24,13 @@ causes storms). Traffic h1->h2 and h2->h1 are both handled:
     switch that owns the destination.
 ARP is forwarded the same way (by its target IP) instead of being flooded.
 
-!! Port numbers below must match topology/topo.py. Verify them at the
-!! mininet> prompt with the `net` command and edit the four tables
-!! if they differ.
+!! Port tables live in controller/ecmp_fallback.py (out_port_for) and
+!! must match topology/topo.py — verify with the mininet> `net` command.
 
-Run:
+Run (STP must be disabled -- see topology/topo.py -- or it blocks one
+of the two redundant paths and ECMP hashing onto it drops 100% of traffic):
     ryu-manager baselines/static_ecmp_only.py
-    sudo python3 topology/topo.py
+    ADAPTIVEQOS_STP=0 sudo python3 topology/topo.py
 """
 
 import os
@@ -41,28 +41,13 @@ from ryu.controller import ofp_event
 from ryu.controller.handler import MAIN_DISPATCHER, CONFIG_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
-from ryu.lib.packet import packet, ethernet, ipv4, arp, tcp, udp, ether_types
+from ryu.lib.packet import packet, ethernet, ipv4, arp, ether_types
 from ryu.lib import hub
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from controller.ecmp_fallback import ecmp_select_path, DEFAULT_TOPO_LINKS  # noqa: E402
+from controller.ecmp_fallback import out_port_for, make_flow_key, ip_match, NODE_TO_DPID  # noqa: E402
 from evaluation.logger import SetupCostLogger  # noqa: E402
 from controller.telemetry import TelemetryCollector  # noqa: E402
-
-# Map topology node names (as used in ecmp_fallback's graph) to dpid.
-NODE_TO_DPID = {"s1": 1, "s2": 2, "s3": 3, "s4": 4}
-DPID_TO_NODE = {v: k for k, v in NODE_TO_DPID.items()}
-
-# ---- Static tables for this fixed topology (verify with `net`) ----------
-# Which switch (dpid) each host IP is attached to.
-HOST_SWITCH = {"10.0.0.1": 1, "10.0.0.2": 4}
-# Port on that switch that faces the host (s1 -> h1, s4 -> h2).
-HOST_PORT = {1: 1, 4: 1}
-# On an edge switch: port toward each middle switch.
-EDGE_PORTS = {1: {"s2": 2, "s3": 3}, 4: {"s2": 2, "s3": 3}}
-# On a middle switch: port toward each edge switch (keyed by edge dpid).
-MIDDLE_PORTS = {2: {1: 1, 4: 2}, 3: {1: 1, 4: 2}}
-# -------------------------------------------------------------------------
 
 
 class StaticEcmpOnlyApp(app_manager.RyuApp):
@@ -71,11 +56,6 @@ class StaticEcmpOnlyApp(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.datapaths = {}
-        self.graph = {}
-        for a, b in DEFAULT_TOPO_LINKS:
-            self.graph.setdefault(a, set()).add(b)
-            self.graph.setdefault(b, set()).add(a)
-
         self.setup_cost = SetupCostLogger()
         self.setup_cost.start("ecmp")
         self._reported_ready = False
@@ -151,7 +131,7 @@ class StaticEcmpOnlyApp(app_manager.RyuApp):
 
         if ip is not None:
             dst_ip = ip.dst
-            flow_key = self._flow_key(pkt, ip)
+            flow_key = make_flow_key(pkt, ip)
         elif arp_pkt is not None:
             # ARP request: dst_ip is the target host. ARP reply: dst_ip is
             # the requester. Either way, forward toward dst_ip, never flood.
@@ -160,14 +140,14 @@ class StaticEcmpOnlyApp(app_manager.RyuApp):
         else:
             return  # IPv6 / other noise: drop, never flood on a looped topology
 
-        out_port = self._out_port(dpid, dst_ip, flow_key)
+        out_port = out_port_for(dpid, dst_ip, flow_key)
         if out_port is None:
             return
 
         actions = [parser.OFPActionOutput(out_port)]
 
         if ip is not None:
-            match = self._ip_match(parser, pkt, ip)
+            match = ip_match(parser, pkt, ip)
             if msg.buffer_id != ofproto.OFP_NO_BUFFER:
                 self.add_flow(datapath, 10, match, actions, msg.buffer_id, idle_timeout=30)
                 return
@@ -178,49 +158,3 @@ class StaticEcmpOnlyApp(app_manager.RyuApp):
             datapath=datapath, buffer_id=msg.buffer_id, in_port=in_port,
             actions=actions, data=data,
         ))
-
-    # ------------------------------------------------------------------
-    def _out_port(self, dpid, dst_ip, flow_key):
-        """Static, direction-aware forwarding. ECMP happens only at the
-        edge switches (s1, s4) when the destination is across the core."""
-        dst_sw = HOST_SWITCH.get(dst_ip)
-        if dst_sw is None:
-            return None
-
-        # Destination host is attached to this very switch.
-        if dpid == dst_sw:
-            return HOST_PORT.get(dpid)
-
-        # Edge switch, destination is on the far side: ECMP hash picks a path.
-        if dpid in EDGE_PORTS:
-            src_node = DPID_TO_NODE[dpid]
-            dst_node = DPID_TO_NODE[dst_sw]
-            path = ecmp_select_path(self.graph, src_node, dst_node, flow_key)
-            if path and len(path) > 1:
-                return EDGE_PORTS[dpid].get(path[1])
-            return None
-
-        # Middle switch: send toward the edge switch that owns the destination.
-        return MIDDLE_PORTS.get(dpid, {}).get(dst_sw)
-
-    @staticmethod
-    def _flow_key(pkt, ip):
-        t = pkt.get_protocol(tcp.tcp)
-        if t is not None:
-            return (ip.src, ip.dst, ip.proto, t.src_port, t.dst_port)
-        u = pkt.get_protocol(udp.udp)
-        if u is not None:
-            return (ip.src, ip.dst, ip.proto, u.src_port, u.dst_port)
-        return (ip.src, ip.dst, ip.proto)
-
-    @staticmethod
-    def _ip_match(parser, pkt, ip):
-        fields = dict(eth_type=ether_types.ETH_TYPE_IP,
-                      ipv4_src=ip.src, ipv4_dst=ip.dst, ip_proto=ip.proto)
-        t = pkt.get_protocol(tcp.tcp)
-        u = pkt.get_protocol(udp.udp)
-        if t is not None:
-            fields.update(tcp_src=t.src_port, tcp_dst=t.dst_port)
-        elif u is not None:
-            fields.update(udp_src=u.src_port, udp_dst=u.dst_port)
-        return parser.OFPMatch(**fields)
