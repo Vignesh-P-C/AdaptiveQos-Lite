@@ -31,6 +31,7 @@ from collections import defaultdict
 from ryu.lib import hub
 from ryu.ofproto import ofproto_v1_3
 
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from evaluation.logger import FlowMetricsLogger  # noqa: E402
 
@@ -62,6 +63,7 @@ class TelemetryCollector:
             hub.sleep(POLL_INTERVAL_SEC)
 
     # ------------------------------------------------------------------
+
     # Port stats -> throughput / loss
     # ------------------------------------------------------------------
     def _request_port_stats(self, datapath):
@@ -87,7 +89,24 @@ class TelemetryCollector:
             prev = self._prev_port_stats.get(key)
 
             if prev is not None:
-                dt = max(now - prev["ts"], 1e-6)
+                dt = now - prev["ts"]
+                if dt < 0.1:
+                    # Two stats replies for the same port arrived within
+                    # 100ms of each other (burst delivery / timing jitter
+                    # in the poll loop) — dividing bytes by a near-zero
+                    # dt here produces physically impossible throughput
+                    # spikes (thousands of Mbps on an 8-10Mbit link).
+
+                    # Skip this reading rather than log garbage; the next
+                    # ~1s-spaced poll will produce a sane one.
+                    self._prev_port_stats[key] = {
+                        "rx_bytes": stat.rx_bytes, "tx_bytes": stat.tx_bytes,
+                        "rx_packets": stat.rx_packets, "tx_packets": stat.tx_packets,
+                        "rx_dropped": stat.rx_dropped, "tx_dropped": stat.tx_dropped,
+                        "ts": now,
+                    }
+                    continue
+
                 rx_bytes_delta = stat.rx_bytes - prev["rx_bytes"]
                 tx_bytes_delta = stat.tx_bytes - prev["tx_bytes"]
                 rx_dropped_delta = stat.rx_dropped - prev["rx_dropped"]
@@ -110,6 +129,7 @@ class TelemetryCollector:
                 latency_ms, jitter_ms = self._current_latency_jitter(dpid)
 
                 self.logger_csv.write_row(
+
                     flow_id=f"link:{dpid}:{port_no}",
                     flow_type="unclassified",  # Stage 3 fills this in, week 5-6
                     path_chosen=f"dpid={dpid}",
@@ -142,6 +162,7 @@ class TelemetryCollector:
         """Wire this up in main_app.py with:
         @set_ev_cls(ofp_event.EventOFPEchoReply, MAIN_DISPATCHER)
         def _echo_reply(self, ev):
+
             self.telemetry.handle_echo_reply(ev)
         """
         dpid = ev.msg.datapath.id
