@@ -25,6 +25,7 @@ scales up toward the 10-15 switch campus topology called for in
 Objective 1, without a rewrite — just more parallel S1<->S4 paths.
 """
 
+import os
 import time
 from functools import partial
 from mininet.topo import Topo
@@ -82,8 +83,21 @@ class RedundantPathTopo(Topo):
 def build_net(num_middle_switches=2, use_remote_controller=True):
     """Build and return a Mininet object, wired to the Ryu controller
     unless use_remote_controller=False (useful for a pure-plumbing
-    test with Mininet's own reference controller)."""
+    test with Mininet's own reference controller).
+
+    STP (spanning tree) is enabled by default — needed for the plain
+    learning-switch controller (main_app.py), which floods unknown-MAC
+    traffic out every port and would otherwise loop forever on the
+    redundant s1<->s4 paths. Set ADAPTIVEQOS_STP=0 in the environment
+    to disable it for controllers that manage their own loop safety
+    and need BOTH redundant paths simultaneously usable — the static
+    ECMP baseline (baselines/static_ecmp_only.py) is exactly this
+    case: STP permanently blocks one path at the switch level, which
+    silently breaks per-flow ECMP hashing (any flow whose hash picks
+    the blocked path drops 100% of its traffic, deterministically).
+    """
     topo = RedundantPathTopo(num_middle_switches=num_middle_switches)
+    stp_enabled = os.environ.get("ADAPTIVEQOS_STP", "1") != "0"
 
     if use_remote_controller:
         controller = RemoteController(
@@ -91,7 +105,7 @@ def build_net(num_middle_switches=2, use_remote_controller=True):
         )
         net = Mininet(
             topo=topo,
-            switch=partial(OVSSwitch, stp=True),
+            switch=partial(OVSSwitch, stp=stp_enabled),
             controller=controller,
             link=TCLink,
             autoSetMacs=True,
@@ -99,6 +113,7 @@ def build_net(num_middle_switches=2, use_remote_controller=True):
     else:
         net = Mininet(topo=topo, switch=OVSSwitch, link=TCLink, autoSetMacs=True)
 
+    net.stp_enabled = stp_enabled
     return net
 
 
@@ -107,13 +122,17 @@ def main():
     net = build_net(num_middle_switches=2, use_remote_controller=True)
     net.start()
 
-    info("*** Enabling STP on all switches (Mininet's stp=True flag "
-         "doesn't reliably propagate on this OVS version)\n")
-    for switch in net.switches:
-        switch.cmd(f"ovs-vsctl set bridge {switch.name} stp_enable=true")
+    if net.stp_enabled:
+        info("*** Enabling STP on all switches (Mininet's stp=True flag "
+             "doesn't reliably propagate on this OVS version)\n")
+        for switch in net.switches:
+            switch.cmd(f"ovs-vsctl set bridge {switch.name} stp_enable=true")
 
-    info("*** Waiting for STP to converge (~45s)...\n")
-    time.sleep(45)
+        info("*** Waiting for STP to converge (~45s)...\n")
+        time.sleep(45)
+    else:
+        info("*** STP disabled (ADAPTIVEQOS_STP=0) — this controller must "
+             "handle its own loop safety for flooded/broadcast traffic\n")
 
     info("*** Connectivity check: pingall\n")
     net.pingAll()
