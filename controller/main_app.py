@@ -23,7 +23,7 @@ from telemetry import TelemetryCollector  # also puts repo root on sys.path
 from classifier import classify_packet, REAL_TIME
 from agent import EpsilonGreedyAgent
 from ecmp_fallback import out_port_for, make_flow_key, ip_match, NODE_TO_DPID
-from evaluation.logger import AgentInternalLogger
+from evaluation.logger import AgentInternalLogger, SetupCostLogger
 
 REWARD_POLL_SEC = 1.0
 CANDIDATE_PATHS = [("s1", "s2", "s4"), ("s1", "s3", "s4")]
@@ -35,14 +35,18 @@ class AdaptiveQoSLiteApp(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.datapaths = {}
+        self._reported_ready = False
 
         scenario = os.environ.get("ADAPTIVEQOS_SCENARIO", "unlabeled")
         self.telemetry = TelemetryCollector(self, method="adaptiveqos", scenario=scenario)
         hub.spawn(self.telemetry.run)
 
-        self.agent = EpsilonGreedyAgent(logger=AgentInternalLogger())
+        self.agent = EpsilonGreedyAgent(logger=AgentInternalLogger(scenario=scenario))
         self.rt_paths = {}  # flow_key -> path currently assigned by the agent
         hub.spawn(self._reward_loop)
+
+        self.setup_cost = SetupCostLogger()
+        self.setup_cost.start("adaptiveqos")
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
@@ -53,6 +57,10 @@ class AdaptiveQoSLiteApp(app_manager.RyuApp):
         match = parser.OFPMatch()
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER, ofproto.OFPCML_NO_BUFFER)]
         self.add_flow(datapath, 0, match, actions)
+
+        if not self._reported_ready and len(self.datapaths) >= len(NODE_TO_DPID):
+            self.setup_cost.finish("adaptiveqos", gpu_used="no")
+            self._reported_ready = True
 
     @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER)
     def port_stats_reply_handler(self, ev):
