@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AdaptiveQoS-Lite Dashboard</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>AdaptiveQoS-Lite Dashboard</h1>
+  </header>
+
+  <section class="status-bar">
+    <div class="pill" id="controller-pill">Controller: <span id="controller-status">--</span></div>
+    <div class="pill" id="agent-pill">Agent: <span id="agent-status">--</span></div>
+    <div class="pill">Active flows: <span id="active-flows">--</span></div>
+    <div class="pill">Current path: <span id="current-path">--</span></div>
+    <div class="pill muted">Scenario: <span id="scenario">--</span> / <span id="method">--</span></div>
+  </section>
+
+  <section class="card">
+    <h2>Current Real-Time Flow (h1 &rarr; h2)</h2>
+    <div class="flow-metrics">
+      <div><span class="label">Type</span><span class="value" id="flow-type">--</span></div>
+      <div><span class="label">Latency</span><span class="value" id="flow-latency">-- ms</span></div>
+      <div><span class="label">Jitter</span><span class="value" id="flow-jitter">-- ms</span></div>
+      <div><span class="label">Loss</span><span class="value" id="flow-loss">-- %</span></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Latency / Jitter Over Time</h2>
+    <canvas id="timeseries-chart" height="90"></canvas>
+  </section>
+
+  <section class="card">
+    <h2>Candidate Paths</h2>
+    <p class="note">Latency/jitter here come from the middle switch's OpenFlow echo-RTT
+      (control-channel proxy, not a validated data-plane measurement -- see the project
+      report's Limitations section). Q-value and visit count are the agent's own real
+      decision data (Log B).</p>
+    <div class="paths-grid" id="paths-grid"></div>
+  </section>
+
+  <section class="card">
+    <h2>Recent Routing Decisions</h2>
+    <table id="decisions-table">
+      <thead><tr><th>Time</th><th>Flow</th><th>Chosen path</th><th>Reward</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+</body>
+</html>
