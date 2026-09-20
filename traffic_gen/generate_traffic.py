@@ -77,9 +77,12 @@ def start_bulk_tcp_flow(server_ip, duration_sec=60, port=BULK_TCP_PORT, bandwidt
 
 def run_scenario(net, scenario_name, duration_sec=60, server_ip="10.0.0.2"):
     """Drive the scenario from inside a Mininet script: net is the
-    Mininet object from topology/topo.py's build_net(). Returns the
-    list of Popen handles (real-time flow first) so the caller can
-    wait/terminate them.
+    Mininet object from topology/topo.py's build_net(). Client/server
+    processes are started via host.cmd() with a trailing '&' (Mininet's
+    normal backgrounding pattern) rather than returned as Popen handles
+    — the caller waits out duration_sec, then explicitly kills iperf3
+    on both hosts (h1 pkill iperf3 / h2 pkill iperf3) before starting
+    the next scenario. Returns a small metadata dict, not process handles.
 
     Note on realism: each concurrent bulk flow here uses a distinct
     TCP port to avoid port collisions when heavy uses 3 flows.
@@ -90,7 +93,14 @@ def run_scenario(net, scenario_name, duration_sec=60, server_ip="10.0.0.2"):
 
     h1, h2 = net.get("h1"), net.get("h2")
 
-    procs = []
+    # Kill any iperf3 left running from a previous scenario call that
+    # wasn't cleaned up — otherwise "-s -p <port> -D" fails to bind
+    # ("address already in use") and this scenario silently runs with
+    # no server on that port.
+    h1.cmd("pkill -9 -f iperf3 2>/dev/null")
+    h2.cmd("pkill -9 -f iperf3 2>/dev/null")
+    time.sleep(0.5)
+
     # One iperf3 server per port in use: realtime UDP port + one TCP
     # port per bulk flow (iperf3 servers are single-port).
     h2.cmd(f"iperf3 -s -p {REALTIME_UDP_PORT} -D")

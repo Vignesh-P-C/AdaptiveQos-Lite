@@ -42,10 +42,12 @@ from ryu.controller.handler import MAIN_DISPATCHER, CONFIG_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
 from ryu.lib.packet import packet, ethernet, ipv4, arp, tcp, udp, ether_types
+from ryu.lib import hub
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from controller.ecmp_fallback import ecmp_select_path, DEFAULT_TOPO_LINKS  # noqa: E402
 from evaluation.logger import SetupCostLogger  # noqa: E402
+from controller.telemetry import TelemetryCollector  # noqa: E402
 
 # Map topology node names (as used in ecmp_fallback's graph) to dpid.
 NODE_TO_DPID = {"s1": 1, "s2": 2, "s3": 3, "s4": 4}
@@ -77,6 +79,15 @@ class StaticEcmpOnlyApp(app_manager.RyuApp):
         self.setup_cost = SetupCostLogger()
         self.setup_cost.start("ecmp")
         self._reported_ready = False
+
+        # Read-only measurement (does NOT influence routing decisions —
+        # same telemetry module main_app.py uses, so Log A is comparable
+        # across methods). Scenario tag comes from the environment so a
+        # single script doesn't need editing between light/moderate/heavy
+        # runs: ADAPTIVEQOS_SCENARIO=heavy ryu-manager baselines/...
+        scenario = os.environ.get("ADAPTIVEQOS_SCENARIO", "unlabeled")
+        self.telemetry = TelemetryCollector(self, method="ecmp", scenario=scenario)
+        self.telemetry_thread = hub.spawn(self.telemetry.run)
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
@@ -112,6 +123,14 @@ class StaticEcmpOnlyApp(app_manager.RyuApp):
                                      match=match, instructions=inst,
                                      idle_timeout=idle_timeout)
         datapath.send_msg(mod)
+
+    @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER)
+    def port_stats_reply_handler(self, ev):
+        self.telemetry.handle_port_stats_reply(ev)
+
+    @set_ev_cls(ofp_event.EventOFPEchoReply, MAIN_DISPATCHER)
+    def echo_reply_handler(self, ev):
+        self.telemetry.handle_echo_reply(ev)
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def packet_in_handler(self, ev):
