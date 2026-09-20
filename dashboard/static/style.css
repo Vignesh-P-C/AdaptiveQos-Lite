@@ -1,0 +1,113 @@
+:root {
+  --bg: #0f1420;
+  --card-bg: #171d2e;
+  --border: #2a3350;
+  --text: #e5e9f0;
+  --muted: #8b93a7;
+  --accent: #4f8cff;
+  --ok: #3ddc84;
+  --bad: #ff5d5d;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0 16px 32px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+header {
+  padding: 20px 4px 8px;
+}
+header h1 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.status-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.pill {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+}
+.pill.muted { color: var(--muted); }
+.pill span { font-weight: 600; color: var(--accent); }
+#controller-status.ok, #agent-status.ok { color: var(--ok); }
+#controller-status.bad, #agent-status.bad { color: var(--bad); }
+
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-bottom: 16px;
+}
+.card h2 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.note {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: -4px;
+  margin-bottom: 14px;
+}
+
+.flow-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 12px;
+}
+.flow-metrics > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.label { font-size: 0.75rem; color: var(--muted); }
+.value { font-size: 1.3rem; font-weight: 600; }
+
+.paths-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+.path-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.path-card h3 { margin: 0 0 8px; font-size: 0.95rem; }
+.path-card .row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  padding: 3px 0;
+  color: var(--muted);
+}
+.path-card .row span:last-child { color: var(--text); font-weight: 600; }
+.path-card.current { border-color: var(--accent); }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+th, td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+th { color: var(--muted); font-weight: 500; }

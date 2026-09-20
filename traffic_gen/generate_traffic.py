@@ -84,6 +84,16 @@ def sample_realtime_latency(net, method, scenario_name, duration_sec=60,
     on localhost) and never scales with real traffic/congestion -- a
     Week 3-4 bug found while validating the ECMP baseline's numbers.
 
+    -Q 0xb8 sets the IP TOS byte to DSCP EF (46 << 2) -- the same marking
+    real VoIP/video traffic would use -- so classify_packet() actually
+    tags these probes real_time and main_app.py routes them through
+    _route_realtime() (the agent's chosen path), instead of falling
+    through to the best_effort/ECMP branch like an unmarked ping always
+    does. Without this, these numbers measure ECMP-hashed traffic in
+    BOTH the ecmp and adaptiveqos runs -- any difference between methods
+    would be pure per-run ephemeral-port-hash luck from the concurrent
+    bulk flows, never anything the agent actually did.
+
     One row per ping to its own Log A file (flow_id="h1-h2-realtime"),
     via the same evaluation.logger.FlowMetricsLogger used elsewhere so
     it stays in the same schema. Blocks for duration_sec.
@@ -97,7 +107,7 @@ def sample_realtime_latency(net, method, scenario_name, duration_sec=60,
     try:
         for _ in range(n):
             loop_start = time.time()
-            out = h1.cmd(f"ping -c 1 -W 1 {server_ip}")
+            out = h1.cmd(f"ping -c 1 -W 1 -Q 0xb8 {server_ip}")
             m = re.search(r"time=([\d.]+)", out)
             if m:
                 rtt = float(m.group(1))
