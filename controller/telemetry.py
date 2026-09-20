@@ -38,7 +38,7 @@ POLL_INTERVAL_SEC = 1.0
 
 
 class TelemetryCollector:
-    def __init__(self, ryu_app, method="adaptiveqos", scenario="dev"):
+    def __init__(self, ryu_app, method="adaptiveqos", scenario="unlabeled"):
         self.app = ryu_app
         self.logger_csv = FlowMetricsLogger(method=method, scenario=scenario)
 

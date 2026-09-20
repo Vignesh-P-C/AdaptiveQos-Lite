@@ -25,6 +25,7 @@ from ryu.ofproto import ofproto_v1_3
 from ryu.lib.packet import packet, ethernet, ether_types
 from ryu.lib import hub
 
+import os
 from telemetry import TelemetryCollector
 
 # Uncomment once Stage 3 (week 5-6) lands:
@@ -42,7 +43,11 @@ class AdaptiveQoSLiteApp(app_manager.RyuApp):
         # polls stats from these.
         self.datapaths = {}
 
-        self.telemetry = TelemetryCollector(self)
+        # ADAPTIVEQOS_SCENARIO env var keeps hello-world/telemetry-check
+        # runs (default "unlabeled") from mixing into real experiment
+        # CSVs — e.g. ADAPTIVEQOS_SCENARIO=light ryu-manager ...
+        scenario = os.environ.get("ADAPTIVEQOS_SCENARIO", "unlabeled")
+        self.telemetry = TelemetryCollector(self, scenario=scenario)
         self.telemetry_thread = hub.spawn(self.telemetry.run)
 
         # TODO (week 5-6): self.classifier = FlowClassifier()

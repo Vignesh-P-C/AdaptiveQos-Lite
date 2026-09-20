@@ -1,7 +1,7 @@
 r"""
 topology/topo.py — AdaptiveQoS-Lite testbed topology
 
-Week 1-2 milestone: prove the plumbing works.
+Baseline connectivity check: prove the plumbing works.
     sudo python3 topology/topo.py
 should give a working Mininet network, `pingall` succeeding across all
 hosts, and (once main_app.py is running in another terminal) the Ryu
@@ -25,13 +25,13 @@ scales up toward the 10-15 switch campus topology called for in
 Objective 1, without a rewrite — just more parallel S1<->S4 paths.
 """
 
+import time
+from functools import partial
 from mininet.topo import Topo
 from mininet.net import Mininet
-from functools import partial
 from mininet.node import OVSSwitch, RemoteController
 from mininet.link import TCLink
 from mininet.cli import CLI
-import time
 from mininet.log import setLogLevel, info
 
 # Default controller connection — matches where Ryu listens by default.

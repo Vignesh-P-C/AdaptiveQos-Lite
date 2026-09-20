@@ -27,11 +27,13 @@ from ryu.controller import ofp_event
 from ryu.controller.handler import MAIN_DISPATCHER, CONFIG_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
-from ryu.lib.packet import packet, ethernet, ipv4, ether_types
+from ryu.lib.packet import packet, ethernet, ipv4, tcp, udp, ether_types
+from ryu.lib import hub
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from controller.ecmp_fallback import ecmp_select_path, DEFAULT_TOPO_LINKS  # noqa: E402
 from evaluation.logger import SetupCostLogger  # noqa: E402
+from controller.telemetry import TelemetryCollector  # noqa: E402
 
 # Map topology node names (as used in ecmp_fallback's graph) to dpid.
 # s1 -> dpid 1, s2 -> dpid 2, etc. — matches Mininet's default dpid
@@ -55,6 +57,15 @@ class StaticEcmpOnlyApp(app_manager.RyuApp):
         self.setup_cost = SetupCostLogger()
         self.setup_cost.start("ecmp")
         self._reported_ready = False
+
+        # Read-only measurement (does NOT influence routing decisions —
+        # same telemetry module main_app.py uses, so Log A is comparable
+        # across methods). Scenario tag comes from the environment so a
+        # single script doesn't need editing between light/moderate/heavy
+        # runs: ADAPTIVEQOS_SCENARIO=heavy ryu-manager baselines/...
+        scenario = os.environ.get("ADAPTIVEQOS_SCENARIO", "unlabeled")
+        self.telemetry = TelemetryCollector(self, method="ecmp", scenario=scenario)
+        self.telemetry_thread = hub.spawn(self.telemetry.run)
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
@@ -91,6 +102,14 @@ class StaticEcmpOnlyApp(app_manager.RyuApp):
                                      idle_timeout=idle_timeout)
         datapath.send_msg(mod)
 
+    @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER)
+    def port_stats_reply_handler(self, ev):
+        self.telemetry.handle_port_stats_reply(ev)
+
+    @set_ev_cls(ofp_event.EventOFPEchoReply, MAIN_DISPATCHER)
+    def echo_reply_handler(self, ev):
+        self.telemetry.handle_echo_reply(ev)
+
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def packet_in_handler(self, ev):
         msg = ev.msg
@@ -110,7 +129,7 @@ class StaticEcmpOnlyApp(app_manager.RyuApp):
         self.mac_to_port[dpid][src_mac] = in_port
 
         ip = pkt.get_protocol(ipv4.ipv4)
-        out_port = self._decide_out_port(dpid, in_port, dst_mac, ip, ofproto)
+        out_port = self._decide_out_port(dpid, in_port, dst_mac, pkt, ip, ofproto)
 
         actions = [parser.OFPActionOutput(out_port)]
         if out_port != ofproto.OFPP_FLOOD:
@@ -126,13 +145,30 @@ class StaticEcmpOnlyApp(app_manager.RyuApp):
             actions=actions, data=data,
         ))
 
-    def _decide_out_port(self, dpid, in_port, dst_mac, ip, ofproto):
+    def _decide_out_port(self, dpid, in_port, dst_mac, pkt, ip, ofproto):
         """Learning-switch fallback for anything not on the h1<->h2
         inter-switch path (ARP, unknown MACs); ECMP hash-select for
-        traffic actually crossing the redundant s1<->s4 paths."""
+        traffic actually crossing the redundant s1<->s4 paths.
+
+        flow_key MUST include L4 ports, not just (src, dst, proto) —
+        with only two hosts, every flow shares the same IP pair, so
+        omitting ports collapses every UDP flow (and separately every
+        TCP flow) onto a single path for the whole run. That defeats
+        ECMP's actual job (spreading flows across equal-cost paths)
+        and would silently invalidate the ECMP-vs-AdaptiveQoS-Lite
+        comparison this baseline exists to provide.
+        """
         node = DPID_TO_NODE.get(dpid)
         if node in ("s1",) and ip is not None:
-            flow_key = (ip.src, ip.dst, ip.proto)
+            udp_hdr = pkt.get_protocol(udp.udp)
+            tcp_hdr = pkt.get_protocol(tcp.tcp)
+            src_port = dst_port = None
+            if udp_hdr is not None:
+                src_port, dst_port = udp_hdr.src_port, udp_hdr.dst_port
+            elif tcp_hdr is not None:
+                src_port, dst_port = tcp_hdr.src_port, tcp_hdr.dst_port
+
+            flow_key = (ip.src, ip.dst, ip.proto, src_port, dst_port)
             path = ecmp_select_path(self.graph, "s1", "s4", flow_key)
             if path and len(path) > 1:
                 next_hop = path[1]
