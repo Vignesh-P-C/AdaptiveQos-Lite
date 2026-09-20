@@ -13,18 +13,20 @@ Design notes
 - epsilon decays but never drops below eps_min, so a path that recovers
   can be rediscovered.
 - Cold start: every arm is tried once before estimates are trusted.
+- Logging: pass an evaluation.logger.AgentInternalLogger (Log B) as
+  `logger`. One row is written per routing decision, once its reward
+  arrives via update(). With logger=None nothing is written.
 
 Usage
-    agent = EpsilonGreedyAgent(log_path="data/raw/agent_decisions.csv")
-    path = agent.select_path([("s1", "s2", "s4"), ("s1", "s3", "s4")])
+    from evaluation.logger import AgentInternalLogger
+    agent = EpsilonGreedyAgent(logger=AgentInternalLogger())
+    path = agent.select_path([("s1", "s2", "s4"), ("s1", "s3", "s4")],
+                             flow_key="h1-h2-udp-5004")
     ... measure jitter/latency/loss on that path ...
     agent.update(path, jitter_ms, latency_ms, loss_fraction)
 """
 
-import csv
-import os
 import random
-import time
 
 
 class EpsilonGreedyAgent:
@@ -37,7 +39,7 @@ class EpsilonGreedyAgent:
                  w_latency=0.2,
                  w_loss=100.0,
                  seed=None,
-                 log_path=None):
+                 logger=None):
         self.alpha = alpha
         self.eps = eps_start
         self.eps_min = eps_min
@@ -50,14 +52,8 @@ class EpsilonGreedyAgent:
         self.n = {}   # path -> number of updates received
         self.rng = random.Random(seed)
 
-        self._log_file = None
-        self._writer = None
-        if log_path:
-            os.makedirs(os.path.dirname(log_path) or ".", exist_ok=True)
-            self._log_file = open(log_path, "w", newline="")
-            self._writer = csv.writer(self._log_file)
-            self._writer.writerow(
-                ["time", "event", "flow", "path", "mode", "reward", "epsilon", "q_values"])
+        self.logger = logger      # AgentInternalLogger (Log B) or None
+        self._pending = {}        # path -> [(flow_key, candidates), ...] awaiting reward
 
     # ------------------------------------------------------------------
     def reward(self, jitter_ms, latency_ms=0.0, loss=0.0):
@@ -71,14 +67,14 @@ class EpsilonGreedyAgent:
         untried = [p for p in candidates if self.n.get(p, 0) == 0]
 
         if untried:
-            path, mode = self.rng.choice(untried), "cold_start"
+            path = self.rng.choice(untried)
         elif self.rng.random() < self.eps:
-            path, mode = self.rng.choice(candidates), "explore"
+            path = self.rng.choice(candidates)
         else:
-            path, mode = max(candidates, key=lambda p: self.q[p]), "exploit"
+            path = max(candidates, key=lambda p: self.q[p])
 
         self.eps = max(self.eps_min, self.eps * self.eps_decay)
-        self._log("select", flow_key, path, mode, None)
+        self._pending.setdefault(path, []).append((flow_key, candidates))
         return path
 
     def update(self, path, jitter_ms, latency_ms=0.0, loss=0.0):
@@ -89,24 +85,21 @@ class EpsilonGreedyAgent:
         else:
             self.q[path] += self.alpha * (r - self.q[path])
         self.n[path] = self.n.get(path, 0) + 1
-        self._log("update", None, path, None, r)
+
+        # One Log B row per decision, written when its reward arrives.
+        waiting = self._pending.get(path)
+        if self.logger is not None and waiting:
+            flow_key, candidates = waiting.pop(0)
+            self.logger.write_row(
+                flow_id=flow_key if flow_key is not None else "",
+                candidate_paths="|".join("-".join(p) for p in candidates),
+                chosen_path="-".join(path),
+                reward=round(r, 3),
+                arm_estimates=self._fmt_estimates(),
+            )
 
     def best_path(self):
         return max(self.q, key=self.q.get) if self.q else None
 
-    # ------------------------------------------------------------------
-    def _log(self, event, flow, path, mode, reward):
-        if not self._writer:
-            return
-        qs = ";".join("%s=%.2f" % ("-".join(p), v) for p, v in self.q.items())
-        self._writer.writerow([
-            "%.4f" % time.time(), event, flow, "-".join(path), mode,
-            "" if reward is None else "%.3f" % reward,
-            "%.3f" % self.eps, qs,
-        ])
-        self._log_file.flush()
-
-    def close(self):
-        if self._log_file:
-            self._log_file.close()
-            self._log_file = None
+    def _fmt_estimates(self):
+        return ";".join("%s=%.2f" % ("-".join(p), v) for p, v in self.q.items())
