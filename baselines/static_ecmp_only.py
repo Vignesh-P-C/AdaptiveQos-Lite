@@ -1,3 +1,4 @@
+
 """
 baselines/static_ecmp_only.py — the "do nothing smart" comparison run
 
@@ -13,6 +14,20 @@ adaptive method uses, or the comparison is unfair. It performs its own
 minimal port-stats polling ONLY for the setup-cost timing measurement
 (Log C), not for routing decisions.
 
+FIXED VERSION: forwarding is now destination-IP based and direction
+aware, and nothing is ever flooded (the topology has a loop, so flooding
+causes storms). Traffic h1->h2 and h2->h1 are both handled:
+  * at an edge switch (s1 / s4) the packet either goes to the local host
+    (if the destination is attached here) or crosses the core, where the
+    ECMP hash picks s2 or s3;
+  * at a middle switch (s2 / s3) the packet is sent toward the edge
+    switch that owns the destination.
+ARP is forwarded the same way (by its target IP) instead of being flooded.
+
+!! Port numbers below must match topology/topo.py. Verify them at the
+!! mininet> prompt with the `net` command and edit the four tables
+!! if they differ.
+
 Run:
     ryu-manager baselines/static_ecmp_only.py
     sudo python3 topology/topo.py
@@ -20,14 +35,13 @@ Run:
 
 import os
 import sys
-import time
 
 from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import MAIN_DISPATCHER, CONFIG_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
-from ryu.lib.packet import packet, ethernet, ipv4, tcp, udp, ether_types
+from ryu.lib.packet import packet, ethernet, ipv4, arp, tcp, udp, ether_types
 from ryu.lib import hub
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -36,10 +50,19 @@ from evaluation.logger import SetupCostLogger  # noqa: E402
 from controller.telemetry import TelemetryCollector  # noqa: E402
 
 # Map topology node names (as used in ecmp_fallback's graph) to dpid.
-# s1 -> dpid 1, s2 -> dpid 2, etc. — matches Mininet's default dpid
-# assignment for switches named sN in topology/topo.py.
 NODE_TO_DPID = {"s1": 1, "s2": 2, "s3": 3, "s4": 4}
 DPID_TO_NODE = {v: k for k, v in NODE_TO_DPID.items()}
+
+# ---- Static tables for this fixed topology (verify with `net`) ----------
+# Which switch (dpid) each host IP is attached to.
+HOST_SWITCH = {"10.0.0.1": 1, "10.0.0.2": 4}
+# Port on that switch that faces the host (s1 -> h1, s4 -> h2).
+HOST_PORT = {1: 1, 4: 1}
+# On an edge switch: port toward each middle switch.
+EDGE_PORTS = {1: {"s2": 2, "s3": 3}, 4: {"s2": 2, "s3": 3}}
+# On a middle switch: port toward each edge switch (keyed by edge dpid).
+MIDDLE_PORTS = {2: {1: 1, 4: 2}, 3: {1: 1, 4: 2}}
+# -------------------------------------------------------------------------
 
 
 class StaticEcmpOnlyApp(app_manager.RyuApp):
@@ -47,7 +70,6 @@ class StaticEcmpOnlyApp(app_manager.RyuApp):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.mac_to_port = {}
         self.datapaths = {}
         self.graph = {}
         for a, b in DEFAULT_TOPO_LINKS:
@@ -124,20 +146,32 @@ class StaticEcmpOnlyApp(app_manager.RyuApp):
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
             return
 
-        dst_mac, src_mac = eth.dst, eth.src
-        self.mac_to_port.setdefault(dpid, {})
-        self.mac_to_port[dpid][src_mac] = in_port
-
         ip = pkt.get_protocol(ipv4.ipv4)
-        out_port = self._decide_out_port(dpid, in_port, dst_mac, pkt, ip, ofproto)
+        arp_pkt = pkt.get_protocol(arp.arp)
+
+        if ip is not None:
+            dst_ip = ip.dst
+            flow_key = self._flow_key(pkt, ip)
+        elif arp_pkt is not None:
+            # ARP request: dst_ip is the target host. ARP reply: dst_ip is
+            # the requester. Either way, forward toward dst_ip, never flood.
+            dst_ip = arp_pkt.dst_ip
+            flow_key = (arp_pkt.src_ip, arp_pkt.dst_ip, "arp")
+        else:
+            return  # IPv6 / other noise: drop, never flood on a looped topology
+
+        out_port = self._out_port(dpid, dst_ip, flow_key)
+        if out_port is None:
+            return
 
         actions = [parser.OFPActionOutput(out_port)]
-        if out_port != ofproto.OFPP_FLOOD:
-            match = parser.OFPMatch(in_port=in_port, eth_dst=dst_mac, eth_src=src_mac)
+
+        if ip is not None:
+            match = self._ip_match(parser, pkt, ip)
             if msg.buffer_id != ofproto.OFP_NO_BUFFER:
-                self.add_flow(datapath, 1, match, actions, msg.buffer_id, idle_timeout=30)
+                self.add_flow(datapath, 10, match, actions, msg.buffer_id, idle_timeout=30)
                 return
-            self.add_flow(datapath, 1, match, actions, idle_timeout=30)
+            self.add_flow(datapath, 10, match, actions, idle_timeout=30)
 
         data = msg.data if msg.buffer_id == ofproto.OFP_NO_BUFFER else None
         datapath.send_msg(parser.OFPPacketOut(
@@ -145,41 +179,48 @@ class StaticEcmpOnlyApp(app_manager.RyuApp):
             actions=actions, data=data,
         ))
 
-    def _decide_out_port(self, dpid, in_port, dst_mac, pkt, ip, ofproto):
-        """Learning-switch fallback for anything not on the h1<->h2
-        inter-switch path (ARP, unknown MACs); ECMP hash-select for
-        traffic actually crossing the redundant s1<->s4 paths.
+    # ------------------------------------------------------------------
+    def _out_port(self, dpid, dst_ip, flow_key):
+        """Static, direction-aware forwarding. ECMP happens only at the
+        edge switches (s1, s4) when the destination is across the core."""
+        dst_sw = HOST_SWITCH.get(dst_ip)
+        if dst_sw is None:
+            return None
 
-        flow_key MUST include L4 ports, not just (src, dst, proto) —
-        with only two hosts, every flow shares the same IP pair, so
-        omitting ports collapses every UDP flow (and separately every
-        TCP flow) onto a single path for the whole run. That defeats
-        ECMP's actual job (spreading flows across equal-cost paths)
-        and would silently invalidate the ECMP-vs-AdaptiveQoS-Lite
-        comparison this baseline exists to provide.
-        """
-        node = DPID_TO_NODE.get(dpid)
-        if node in ("s1",) and ip is not None:
-            udp_hdr = pkt.get_protocol(udp.udp)
-            tcp_hdr = pkt.get_protocol(tcp.tcp)
-            src_port = dst_port = None
-            if udp_hdr is not None:
-                src_port, dst_port = udp_hdr.src_port, udp_hdr.dst_port
-            elif tcp_hdr is not None:
-                src_port, dst_port = tcp_hdr.src_port, tcp_hdr.dst_port
+        # Destination host is attached to this very switch.
+        if dpid == dst_sw:
+            return HOST_PORT.get(dpid)
 
-            flow_key = (ip.src, ip.dst, ip.proto, src_port, dst_port)
-            path = ecmp_select_path(self.graph, "s1", "s4", flow_key)
+        # Edge switch, destination is on the far side: ECMP hash picks a path.
+        if dpid in EDGE_PORTS:
+            src_node = DPID_TO_NODE[dpid]
+            dst_node = DPID_TO_NODE[dst_sw]
+            path = ecmp_select_path(self.graph, src_node, dst_node, flow_key)
             if path and len(path) > 1:
-                next_hop = path[1]
-                # Static per-topology port mapping for this fixed 2-path
-                # topology: s1's ports to s2/s3 mirror addLink() order in
-                # topo.py. Reads awkward on purpose — a baseline shouldn't
-                # need anything smarter than "look up the static table".
-                next_hop_port = {"s2": 2, "s3": 3}.get(next_hop)
-                if next_hop_port:
-                    return next_hop_port
+                return EDGE_PORTS[dpid].get(path[1])
+            return None
 
-        if dst_mac in self.mac_to_port.get(dpid, {}):
-            return self.mac_to_port[dpid][dst_mac]
-        return ofproto.OFPP_FLOOD
+        # Middle switch: send toward the edge switch that owns the destination.
+        return MIDDLE_PORTS.get(dpid, {}).get(dst_sw)
+
+    @staticmethod
+    def _flow_key(pkt, ip):
+        t = pkt.get_protocol(tcp.tcp)
+        if t is not None:
+            return (ip.src, ip.dst, ip.proto, t.src_port, t.dst_port)
+        u = pkt.get_protocol(udp.udp)
+        if u is not None:
+            return (ip.src, ip.dst, ip.proto, u.src_port, u.dst_port)
+        return (ip.src, ip.dst, ip.proto)
+
+    @staticmethod
+    def _ip_match(parser, pkt, ip):
+        fields = dict(eth_type=ether_types.ETH_TYPE_IP,
+                      ipv4_src=ip.src, ipv4_dst=ip.dst, ip_proto=ip.proto)
+        t = pkt.get_protocol(tcp.tcp)
+        u = pkt.get_protocol(udp.udp)
+        if t is not None:
+            fields.update(tcp_src=t.src_port, tcp_dst=t.dst_port)
+        elif u is not None:
+            fields.update(udp_src=u.src_port, udp_dst=u.dst_port)
+        return parser.OFPMatch(**fields)
