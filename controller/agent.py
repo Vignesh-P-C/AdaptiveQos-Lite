@@ -13,6 +13,9 @@ Design notes
 - epsilon decays but never drops below eps_min, so a path that recovers
   can be rediscovered.
 - Cold start: every arm is tried once before estimates are trusted.
+- Reward clipping: rewards below -reward_floor are clipped, so one extreme
+  reading cannot bury a path's estimate. Defaults match the final configuration
+  used in the report (w_latency=0.05, reward_floor=20).
 - Logging: pass an evaluation.logger.AgentInternalLogger (Log B) as
   `logger`. One row is written per routing decision, once its reward
   arrives via update(). With logger=None nothing is written.
@@ -36,8 +39,9 @@ class EpsilonGreedyAgent:
                  eps_min=0.05,
                  eps_decay=0.99,
                  w_jitter=1.0,
-                 w_latency=0.2,
+                 w_latency=0.05,
                  w_loss=100.0,
+                 reward_floor=20.0,
                  seed=None,
                  logger=None):
         self.alpha = alpha
@@ -47,6 +51,7 @@ class EpsilonGreedyAgent:
         self.w_jitter = w_jitter
         self.w_latency = w_latency
         self.w_loss = w_loss
+        self.reward_floor = reward_floor  # one bad reading cannot cost more than this
 
         self.q = {}   # path -> estimated reward (higher is better)
         self.n = {}   # path -> number of updates received
@@ -58,9 +63,10 @@ class EpsilonGreedyAgent:
     # ------------------------------------------------------------------
     def reward(self, jitter_ms, latency_ms=0.0, loss=0.0):
         """Higher is better. loss is a fraction in [0, 1]."""
-        return -(self.w_jitter * jitter_ms
-                 + self.w_latency * latency_ms
-                 + self.w_loss * loss)
+        r = -(self.w_jitter * jitter_ms
+              + self.w_latency * latency_ms
+              + self.w_loss * loss)
+        return max(r, -self.reward_floor)
 
     def select_path(self, candidate_paths, flow_key=None):
         candidates = [tuple(p) for p in candidate_paths]

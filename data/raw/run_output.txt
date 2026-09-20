@@ -6,99 +6,99 @@
 *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
 *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
 *** Error: Warning: sch_htb: quantum of class 50001 is big. Consider r2q change.
-Sanity check h1->h2: latency=20.3 ms, loss=0%
+Sanity check h1->h2: latency=20.4 ms, loss=0%
 
 --- static_ecmp ---
-  static_ecmp step  0  s1-s2-s4  latency=  20.4 ms  jitter=  0.39 ms  loss= 0.0%
-  static_ecmp step  1  s1-s2-s4  latency=  20.3 ms  jitter=  0.28 ms  loss= 0.0%
-  static_ecmp step  2  s1-s2-s4  latency=  20.3 ms  jitter=  0.20 ms  loss= 0.0%
-  static_ecmp step  3  s1-s2-s4  latency=  20.5 ms  jitter=  0.39 ms  loss= 0.0%
-  static_ecmp step  4  s1-s2-s4  latency=  20.4 ms  jitter=  0.36 ms  loss= 0.0%
-  static_ecmp step  5  s1-s2-s4  latency=  20.3 ms  jitter=  0.13 ms  loss= 0.0%
-  static_ecmp step  6  s1-s2-s4  latency=  20.5 ms  jitter=  0.28 ms  loss= 0.0%
-  static_ecmp step  7  s1-s2-s4  latency=  20.4 ms  jitter=  0.23 ms  loss= 0.0%
-  static_ecmp step  8  s1-s2-s4  latency=  20.4 ms  jitter=  0.23 ms  loss= 0.0%
-  static_ecmp step  9  s1-s2-s4  latency=  20.3 ms  jitter=  0.14 ms  loss= 0.0%
-  static_ecmp step 10  s1-s2-s4  latency=  20.5 ms  jitter=  0.41 ms  loss= 0.0%
-  static_ecmp step 11  s1-s2-s4  latency=  20.4 ms  jitter=  0.29 ms  loss= 0.0%
-  static_ecmp step 12  s1-s2-s4  latency=  20.3 ms  jitter=  0.13 ms  loss= 0.0%
-  static_ecmp step 13  s1-s2-s4  latency=  20.3 ms  jitter=  0.16 ms  loss= 0.0%
-  static_ecmp step 14  s1-s2-s4  latency=  20.3 ms  jitter=  0.19 ms  loss= 0.0%
-  static_ecmp step 15  s1-s2-s4  latency=  20.3 ms  jitter=  0.12 ms  loss= 0.0%
-  static_ecmp step 16  s1-s2-s4  latency=  20.3 ms  jitter=  0.30 ms  loss= 0.0%
-  static_ecmp step 17  s1-s2-s4  latency=  20.4 ms  jitter=  0.30 ms  loss= 0.0%
-  static_ecmp step 18  s1-s2-s4  latency=  20.6 ms  jitter=  0.42 ms  loss= 0.0%
-  static_ecmp step 19  s1-s2-s4  latency=  20.4 ms  jitter=  0.33 ms  loss= 0.0%
-  static_ecmp step 20  s1-s2-s4  latency=  19.8 ms  jitter=  7.12 ms  loss= 0.0%   <-- link degraded
-  static_ecmp step 21  s1-s2-s4  latency=  26.0 ms  jitter=  9.64 ms  loss= 0.0%
-  static_ecmp step 22  s1-s2-s4  latency=  23.9 ms  jitter=  9.08 ms  loss= 0.0%
-  static_ecmp step 23  s1-s2-s4  latency=  22.9 ms  jitter=  8.10 ms  loss= 0.0%
-  static_ecmp step 24  s1-s2-s4  latency=  24.5 ms  jitter=  8.77 ms  loss= 0.0%
-  static_ecmp step 25  s1-s2-s4  latency=  22.3 ms  jitter=  8.35 ms  loss= 0.0%
-  static_ecmp step 26  s1-s2-s4  latency=  20.9 ms  jitter=  7.31 ms  loss= 0.0%
-  static_ecmp step 27  s1-s2-s4  latency=  24.8 ms  jitter=  8.14 ms  loss= 0.0%
-  static_ecmp step 28  s1-s2-s4  latency=  20.8 ms  jitter=  7.67 ms  loss= 0.0%
-  static_ecmp step 29  s1-s2-s4  latency= 169.8 ms  jitter=637.59 ms  loss= 0.0%
-  static_ecmp step 30  s1-s2-s4  latency=  23.2 ms  jitter=  7.34 ms  loss= 0.0%
-  static_ecmp step 31  s1-s2-s4  latency=  24.2 ms  jitter=  7.75 ms  loss= 0.0%
-  static_ecmp step 32  s1-s2-s4  latency=  23.0 ms  jitter=  8.88 ms  loss= 0.0%
-  static_ecmp step 33  s1-s2-s4  latency=  22.4 ms  jitter=  7.70 ms  loss= 0.0%
-  static_ecmp step 34  s1-s2-s4  latency=  19.0 ms  jitter=  6.45 ms  loss= 0.0%
-  static_ecmp step 35  s1-s2-s4  latency=  21.0 ms  jitter=  7.78 ms  loss= 0.0%
-  static_ecmp step 36  s1-s2-s4  latency=  23.5 ms  jitter=  9.29 ms  loss= 0.0%
-  static_ecmp step 37  s1-s2-s4  latency=  22.2 ms  jitter=  9.19 ms  loss= 0.0%
-  static_ecmp step 38  s1-s2-s4  latency=  23.3 ms  jitter=  9.18 ms  loss= 0.0%
-  static_ecmp step 39  s1-s2-s4  latency=  25.3 ms  jitter=  9.50 ms  loss= 0.0%
+  static_ecmp step  0  s1-s2-s4  latency=  20.2 ms  jitter=  0.10 ms  loss= 0.0%
+  static_ecmp step  1  s1-s2-s4  latency=  20.3 ms  jitter=  0.17 ms  loss= 0.0%
+  static_ecmp step  2  s1-s2-s4  latency=  20.3 ms  jitter=  0.14 ms  loss= 0.0%
+  static_ecmp step  3  s1-s2-s4  latency=  20.4 ms  jitter=  0.45 ms  loss= 0.0%
+  static_ecmp step  4  s1-s2-s4  latency=  20.4 ms  jitter=  0.23 ms  loss= 0.0%
+  static_ecmp step  5  s1-s2-s4  latency=  20.4 ms  jitter=  0.26 ms  loss= 0.0%
+  static_ecmp step  6  s1-s2-s4  latency=  20.3 ms  jitter=  0.22 ms  loss= 0.0%
+  static_ecmp step  7  s1-s2-s4  latency=  20.3 ms  jitter=  0.18 ms  loss= 0.0%
+  static_ecmp step  8  s1-s2-s4  latency=  20.4 ms  jitter=  0.34 ms  loss= 0.0%
+  static_ecmp step  9  s1-s2-s4  latency=  20.3 ms  jitter=  0.16 ms  loss= 0.0%
+  static_ecmp step 10  s1-s2-s4  latency=  20.4 ms  jitter=  0.24 ms  loss= 0.0%
+  static_ecmp step 11  s1-s2-s4  latency=  20.3 ms  jitter=  0.29 ms  loss= 0.0%
+  static_ecmp step 12  s1-s2-s4  latency=  20.3 ms  jitter=  0.11 ms  loss= 0.0%
+  static_ecmp step 13  s1-s2-s4  latency=  20.2 ms  jitter=  0.10 ms  loss= 0.0%
+  static_ecmp step 14  s1-s2-s4  latency=  20.3 ms  jitter=  0.23 ms  loss= 0.0%
+  static_ecmp step 15  s1-s2-s4  latency=  20.4 ms  jitter=  0.48 ms  loss= 0.0%
+  static_ecmp step 16  s1-s2-s4  latency=  20.3 ms  jitter=  0.27 ms  loss= 0.0%
+  static_ecmp step 17  s1-s2-s4  latency=  20.3 ms  jitter=  0.30 ms  loss= 0.0%
+  static_ecmp step 18  s1-s2-s4  latency=  20.2 ms  jitter=  0.08 ms  loss= 0.0%
+  static_ecmp step 19  s1-s2-s4  latency=  20.2 ms  jitter=  0.11 ms  loss= 0.0%
+  static_ecmp step 20  s1-s2-s4  latency=  23.5 ms  jitter=  8.49 ms  loss= 0.0%   <-- link degraded
+  static_ecmp step 21  s1-s2-s4  latency=  23.0 ms  jitter=  9.12 ms  loss= 0.0%
+  static_ecmp step 22  s1-s2-s4  latency=  26.1 ms  jitter=  9.42 ms  loss= 0.0%
+  static_ecmp step 23  s1-s2-s4  latency=  22.1 ms  jitter=  7.91 ms  loss= 0.0%
+  static_ecmp step 24  s1-s2-s4  latency=  23.9 ms  jitter=  8.03 ms  loss= 0.0%
+  static_ecmp step 25  s1-s2-s4  latency=  22.0 ms  jitter=  9.00 ms  loss= 0.0%
+  static_ecmp step 26  s1-s2-s4  latency= 168.8 ms  jitter=641.94 ms  loss= 0.0%
+  static_ecmp step 27  s1-s2-s4  latency=  20.2 ms  jitter=  6.77 ms  loss= 0.0%
+  static_ecmp step 28  s1-s2-s4  latency=  28.0 ms  jitter=  9.85 ms  loss= 0.0%
+  static_ecmp step 29  s1-s2-s4  latency=  24.0 ms  jitter=  9.26 ms  loss= 0.0%
+  static_ecmp step 30  s1-s2-s4  latency=  21.8 ms  jitter=  7.89 ms  loss= 0.0%
+  static_ecmp step 31  s1-s2-s4  latency=  22.9 ms  jitter=  8.63 ms  loss= 0.0%
+  static_ecmp step 32  s1-s2-s4  latency=  24.1 ms  jitter=  8.12 ms  loss= 0.0%
+  static_ecmp step 33  s1-s2-s4  latency=  19.6 ms  jitter=  6.26 ms  loss= 0.0%
+  static_ecmp step 34  s1-s2-s4  latency=  21.8 ms  jitter=  7.90 ms  loss= 0.0%
+  static_ecmp step 35  s1-s2-s4  latency=  25.2 ms  jitter=  9.13 ms  loss= 0.0%
+  static_ecmp step 36  s1-s2-s4  latency=  25.6 ms  jitter=  8.46 ms  loss= 0.0%
+  static_ecmp step 37  s1-s2-s4  latency=  21.3 ms  jitter=  7.84 ms  loss= 0.0%
+  static_ecmp step 38  s1-s2-s4  latency=  24.9 ms  jitter=  7.76 ms  loss= 0.0%
+  static_ecmp step 39  s1-s2-s4  latency=  24.9 ms  jitter=  8.90 ms  loss= 0.0%
 
 --- adaptive ---
-  adaptive    step  0  s1-s2-s4  latency=  20.3 ms  jitter=  0.23 ms  loss= 0.0%
-  adaptive    step  1  s1-s3-s4  latency=  40.4 ms  jitter=  0.32 ms  loss= 0.0%
-  adaptive    step  2  s1-s3-s4  latency=  40.3 ms  jitter=  0.18 ms  loss= 0.0%
-  adaptive    step  3  s1-s2-s4  latency=  20.4 ms  jitter=  0.28 ms  loss= 0.0%
-  adaptive    step  4  s1-s2-s4  latency=  20.4 ms  jitter=  0.25 ms  loss= 0.0%
-  adaptive    step  5  s1-s2-s4  latency=  20.3 ms  jitter=  0.25 ms  loss= 0.0%
-  adaptive    step  6  s1-s2-s4  latency=  20.4 ms  jitter=  0.40 ms  loss= 0.0%
-  adaptive    step  7  s1-s2-s4  latency=  20.3 ms  jitter=  0.18 ms  loss= 0.0%
-  adaptive    step  8  s1-s2-s4  latency=  20.3 ms  jitter=  0.14 ms  loss= 0.0%
-  adaptive    step  9  s1-s3-s4  latency=  40.5 ms  jitter=  0.34 ms  loss= 0.0%
-  adaptive    step 10  s1-s2-s4  latency=  20.3 ms  jitter=  0.16 ms  loss= 0.0%
-  adaptive    step 11  s1-s2-s4  latency=  20.2 ms  jitter=  0.10 ms  loss= 0.0%
-  adaptive    step 12  s1-s2-s4  latency=  20.3 ms  jitter=  0.25 ms  loss= 0.0%
-  adaptive    step 13  s1-s2-s4  latency=  20.4 ms  jitter=  0.24 ms  loss= 0.0%
-  adaptive    step 14  s1-s2-s4  latency=  20.4 ms  jitter=  0.26 ms  loss= 0.0%
-  adaptive    step 15  s1-s2-s4  latency=  20.3 ms  jitter=  0.12 ms  loss= 0.0%
-  adaptive    step 16  s1-s3-s4  latency=  40.4 ms  jitter=  0.38 ms  loss= 0.0%
-  adaptive    step 17  s1-s2-s4  latency=  20.4 ms  jitter=  0.22 ms  loss= 0.0%
-  adaptive    step 18  s1-s2-s4  latency=  20.5 ms  jitter=  0.28 ms  loss= 0.0%
-  adaptive    step 19  s1-s2-s4  latency=  20.4 ms  jitter=  0.24 ms  loss= 0.0%
-  adaptive    step 20  s1-s2-s4  latency=  24.5 ms  jitter= 10.03 ms  loss= 0.0%   <-- link degraded
-  adaptive    step 21  s1-s3-s4  latency=  40.4 ms  jitter=  0.30 ms  loss= 0.0%
-  adaptive    step 22  s1-s3-s4  latency= 186.8 ms  jitter=638.79 ms  loss= 0.0%
-  adaptive    step 23  s1-s2-s4  latency=  25.7 ms  jitter=  6.79 ms  loss= 0.0%
-  adaptive    step 24  s1-s2-s4  latency=  23.1 ms  jitter=  7.85 ms  loss= 0.0%
-  adaptive    step 25  s1-s2-s4  latency=  20.8 ms  jitter=  6.40 ms  loss= 0.0%
-  adaptive    step 26  s1-s2-s4  latency=  21.2 ms  jitter=  8.38 ms  loss= 0.0%
-  adaptive    step 27  s1-s2-s4  latency=  21.4 ms  jitter=  7.90 ms  loss= 0.0%
-  adaptive    step 28  s1-s2-s4  latency=  26.2 ms  jitter=  8.39 ms  loss= 0.0%
-  adaptive    step 29  s1-s2-s4  latency=  26.1 ms  jitter=  8.43 ms  loss= 0.0%
-  adaptive    step 30  s1-s2-s4  latency=  21.4 ms  jitter=  5.73 ms  loss= 0.0%
-  adaptive    step 31  s1-s2-s4  latency=  23.9 ms  jitter=  9.41 ms  loss= 0.0%
-  adaptive    step 32  s1-s3-s4  latency=  40.3 ms  jitter=  0.21 ms  loss= 0.0%
-  adaptive    step 33  s1-s2-s4  latency=  22.8 ms  jitter=  8.36 ms  loss= 0.0%
-  adaptive    step 34  s1-s2-s4  latency=  19.9 ms  jitter=  7.16 ms  loss= 0.0%
-  adaptive    step 35  s1-s2-s4  latency=  24.3 ms  jitter=  7.57 ms  loss= 0.0%
-  adaptive    step 36  s1-s2-s4  latency=  25.4 ms  jitter=  7.77 ms  loss= 0.0%
-  adaptive    step 37  s1-s2-s4  latency=  22.1 ms  jitter=  7.02 ms  loss= 0.0%
-  adaptive    step 38  s1-s2-s4  latency=  22.6 ms  jitter=  7.56 ms  loss= 0.0%
-  adaptive    step 39  s1-s2-s4  latency=  22.5 ms  jitter=  7.43 ms  loss= 0.0%
+  adaptive    step  0  s1-s2-s4  latency=  20.4 ms  jitter=  0.36 ms  loss= 0.0%
+  adaptive    step  1  s1-s3-s4  latency=  40.4 ms  jitter=  0.31 ms  loss= 0.0%
+  adaptive    step  2  s1-s3-s4  latency=  40.4 ms  jitter=  0.39 ms  loss= 0.0%
+  adaptive    step  3  s1-s2-s4  latency=  20.4 ms  jitter=  0.26 ms  loss= 0.0%
+  adaptive    step  4  s1-s2-s4  latency=  20.4 ms  jitter=  0.30 ms  loss= 0.0%
+  adaptive    step  5  s1-s2-s4  latency=  20.5 ms  jitter=  0.40 ms  loss= 0.0%
+  adaptive    step  6  s1-s3-s4  latency=  40.2 ms  jitter=  0.09 ms  loss= 0.0%
+  adaptive    step  7  s1-s3-s4  latency=  40.3 ms  jitter=  0.21 ms  loss= 0.0%
+  adaptive    step  8  s1-s2-s4  latency=  20.4 ms  jitter=  0.21 ms  loss= 0.0%
+  adaptive    step  9  s1-s2-s4  latency=  20.4 ms  jitter=  0.31 ms  loss= 0.0%
+  adaptive    step 10  s1-s3-s4  latency=  40.3 ms  jitter=  0.21 ms  loss= 0.0%
+  adaptive    step 11  s1-s2-s4  latency=  20.3 ms  jitter=  0.27 ms  loss= 0.0%
+  adaptive    step 12  s1-s2-s4  latency=  20.3 ms  jitter=  0.13 ms  loss= 0.0%
+  adaptive    step 13  s1-s3-s4  latency=  40.3 ms  jitter=  0.22 ms  loss= 0.0%
+  adaptive    step 14  s1-s2-s4  latency=  20.4 ms  jitter=  0.22 ms  loss= 0.0%
+  adaptive    step 15  s1-s2-s4  latency=  20.4 ms  jitter=  0.26 ms  loss= 0.0%
+  adaptive    step 16  s1-s3-s4  latency=  40.2 ms  jitter=  0.17 ms  loss= 0.0%
+  adaptive    step 17  s1-s2-s4  latency=  20.5 ms  jitter=  0.42 ms  loss= 0.0%
+  adaptive    step 18  s1-s2-s4  latency=  20.3 ms  jitter=  0.37 ms  loss= 0.0%
+  adaptive    step 19  s1-s2-s4  latency=  20.4 ms  jitter=  0.28 ms  loss= 0.0%
+  adaptive    step 20  s1-s2-s4  latency=  25.8 ms  jitter=  8.50 ms  loss= 0.0%   <-- link degraded
+  adaptive    step 21  s1-s3-s4  latency=  40.3 ms  jitter=  0.27 ms  loss= 0.0%
+  adaptive    step 22  s1-s3-s4  latency=  40.3 ms  jitter=  0.25 ms  loss= 0.0%
+  adaptive    step 23  s1-s3-s4  latency=  40.4 ms  jitter=  0.23 ms  loss= 0.0%
+  adaptive    step 24  s1-s3-s4  latency=  40.3 ms  jitter=  0.23 ms  loss= 0.0%
+  adaptive    step 25  s1-s3-s4  latency=  40.3 ms  jitter=  0.25 ms  loss= 0.0%
+  adaptive    step 26  s1-s3-s4  latency=  40.3 ms  jitter=  0.24 ms  loss= 0.0%
+  adaptive    step 27  s1-s3-s4  latency=  40.3 ms  jitter=  0.26 ms  loss= 0.0%
+  adaptive    step 28  s1-s3-s4  latency=  40.3 ms  jitter=  0.27 ms  loss= 0.0%
+  adaptive    step 29  s1-s3-s4  latency=  40.5 ms  jitter=  0.38 ms  loss= 0.0%
+  adaptive    step 30  s1-s3-s4  latency=  40.3 ms  jitter=  0.27 ms  loss= 0.0%
+  adaptive    step 31  s1-s3-s4  latency=  40.3 ms  jitter=  0.19 ms  loss= 0.0%
+  adaptive    step 32  s1-s3-s4  latency=  40.3 ms  jitter=  0.17 ms  loss= 0.0%
+  adaptive    step 33  s1-s3-s4  latency=  40.4 ms  jitter=  0.26 ms  loss= 0.0%
+  adaptive    step 34  s1-s3-s4  latency=  40.3 ms  jitter=  0.21 ms  loss= 0.0%
+  adaptive    step 35  s1-s3-s4  latency=  40.2 ms  jitter=  0.19 ms  loss= 0.0%
+  adaptive    step 36  s1-s3-s4  latency=  40.5 ms  jitter=  0.36 ms  loss= 0.0%
+  adaptive    step 37  s1-s3-s4  latency=  40.5 ms  jitter=  0.32 ms  loss= 0.0%
+  adaptive    step 38  s1-s3-s4  latency=  40.5 ms  jitter=  0.37 ms  loss= 0.0%
+  adaptive    step 39  s1-s3-s4  latency=  40.4 ms  jitter=  0.40 ms  loss= 0.0%
 
 ==============================================================================
 RESULTS  (link on the s2 path degrades at step 20 of 40)
 ==============================================================================
 method         jitter before   jitter after latency before  latency after
-static_ecmp          0.26 ms       39.74 ms        20.4 ms        30.1 ms
-adaptive             0.24 ms       38.57 ms        24.4 ms        33.1 ms
+static_ecmp          0.22 ms       40.03 ms        20.3 ms        30.7 ms
+adaptive             0.27 ms        0.68 ms        27.4 ms        39.6 ms
 
-Jitter after degradation: adaptive is 2.9% lower than static
-Time to adapt: agent did not settle on the healthy path
+Jitter after degradation: adaptive is 98.3% lower than static
+Time to adapt: 1 steps (~2 s) after the link degraded
 Note: jitter = RTT std-dev from ping (proxy); one scenario, emulated network.
