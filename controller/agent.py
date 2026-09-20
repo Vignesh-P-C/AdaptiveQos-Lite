@@ -36,9 +36,9 @@ class EpsilonGreedyAgent:
                  eps_min=0.05,
                  eps_decay=0.99,
                  w_jitter=1.0,
-                 w_latency=0.2,
+                 w_latency=0.05,
                  w_loss=100.0,
-                 reward_floor=-50.0,
+                 reward_floor=-20.0,
                  seed=None,
                  logger=None):
         self.alpha = alpha
