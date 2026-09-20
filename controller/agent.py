@@ -38,6 +38,7 @@ class EpsilonGreedyAgent:
                  w_jitter=1.0,
                  w_latency=0.2,
                  w_loss=100.0,
+                 reward_floor=-50.0,
                  seed=None,
                  logger=None):
         self.alpha = alpha
@@ -47,6 +48,7 @@ class EpsilonGreedyAgent:
         self.w_jitter = w_jitter
         self.w_latency = w_latency
         self.w_loss = w_loss
+        self.reward_floor = reward_floor
 
         self.q = {}   # path -> estimated reward (higher is better)
         self.n = {}   # path -> number of updates received
@@ -57,10 +59,12 @@ class EpsilonGreedyAgent:
 
     # ------------------------------------------------------------------
     def reward(self, jitter_ms, latency_ms=0.0, loss=0.0):
-        """Higher is better. loss is a fraction in [0, 1]."""
-        return -(self.w_jitter * jitter_ms
-                 + self.w_latency * latency_ms
-                 + self.w_loss * loss)
+        """Higher is better, floored so one outlier reading (e.g. a
+        flow-install transient) can't poison a path's Q-estimate."""
+        r = -(self.w_jitter * jitter_ms
+              + self.w_latency * latency_ms
+              + self.w_loss * loss)
+        return max(r, self.reward_floor)
 
     def select_path(self, candidate_paths, flow_key=None):
         candidates = [tuple(p) for p in candidate_paths]

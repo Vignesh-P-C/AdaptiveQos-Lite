@@ -85,3 +85,60 @@ DEFAULT_TOPO_LINKS = [
     ("s1", "s2"), ("s2", "s4"),
     ("s1", "s3"), ("s3", "s4"),
 ]
+TOPO_GRAPH = graph_from_topo(DEFAULT_TOPO_LINKS)
+
+NODE_TO_DPID = {"s1": 1, "s2": 2, "s3": 3, "s4": 4}
+DPID_TO_NODE = {v: k for k, v in NODE_TO_DPID.items()}
+HOST_SWITCH = {"10.0.0.1": 1, "10.0.0.2": 4}
+HOST_PORT = {1: 1, 4: 1}
+EDGE_PORTS = {1: {"s2": 2, "s3": 3}, 4: {"s2": 2, "s3": 3}}
+MIDDLE_PORTS = {2: {1: 1, 4: 2}, 3: {1: 1, 4: 2}}
+
+
+def make_flow_key(pkt, ip):
+    from ryu.lib.packet import tcp, udp
+    t = pkt.get_protocol(tcp.tcp)
+    if t is not None:
+        return (ip.src, ip.dst, ip.proto, t.src_port, t.dst_port)
+    u = pkt.get_protocol(udp.udp)
+    if u is not None:
+        return (ip.src, ip.dst, ip.proto, u.src_port, u.dst_port)
+    return (ip.src, ip.dst, ip.proto)
+
+
+def ip_match(parser, pkt, ip):
+    from ryu.lib.packet import tcp, udp, ether_types
+    fields = dict(eth_type=ether_types.ETH_TYPE_IP,
+                  ipv4_src=ip.src, ipv4_dst=ip.dst, ip_proto=ip.proto)
+    t = pkt.get_protocol(tcp.tcp)
+    u = pkt.get_protocol(udp.udp)
+    if t is not None:
+        fields.update(tcp_src=t.src_port, tcp_dst=t.dst_port)
+    elif u is not None:
+        fields.update(udp_src=u.src_port, udp_dst=u.dst_port)
+    return parser.OFPMatch(**fields)
+
+
+def out_port_for(dpid, dst_ip, flow_key, path=None):
+    """Direction-aware forwarding port for this fixed topology; never
+    floods. path=(edge, mid, edge) pins the middle-switch hop (used by
+    the agent for real-time flows, both directions); omit it for
+    hash-based ECMP (best-effort flows)."""
+    dst_sw = HOST_SWITCH.get(dst_ip)
+    if dst_sw is None:
+        return None
+    if dpid == dst_sw:
+        return HOST_PORT.get(dpid)
+    if dpid in EDGE_PORTS:
+        if path is not None:
+            # path[1] is the middle switch the agent picked; both edge
+            # switches use the same middle-switch port mapping, so this
+            # applies symmetrically to either traffic direction.
+            next_hop = path[1]
+        else:
+            chosen = ecmp_select_path(TOPO_GRAPH, DPID_TO_NODE[dpid], DPID_TO_NODE[dst_sw], flow_key)
+            if not chosen or len(chosen) < 2:
+                return None
+            next_hop = chosen[1]
+        return EDGE_PORTS[dpid].get(next_hop)
+    return MIDDLE_PORTS.get(dpid, {}).get(dst_sw)
