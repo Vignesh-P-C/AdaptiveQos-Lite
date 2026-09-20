@@ -7,3 +7,4 @@ data/figures/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 !data/figures/.gitkeep
+*:Zone.Identifier

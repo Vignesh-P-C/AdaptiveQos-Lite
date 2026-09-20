@@ -48,18 +48,47 @@ on until this is clean.
 
 ## Run order (week 3-4: telemetry + traffic + ECMP baseline)
 
-With the above running, generate traffic and watch Log A fill in:
+With the above running, generate traffic and watch Log A fill in.
+Mininet's `py` only evaluates expressions — `import` needs `px`, and
+the repo root needs adding to `sys.path` since scripts run from inside
+`topology/`:
 
 ```bash
 # in the Mininet CLI (terminal 2, after topo.py drops you into it)
-mininet> py from traffic_gen.generate_traffic import run_scenario
+mininet> px import sys, os
+mininet> px sys.path.insert(0, os.path.abspath("."))
+mininet> px from traffic_gen.generate_traffic import run_scenario
 mininet> py run_scenario(net, "moderate", duration_sec=60)
 ```
 
-Watch `data/raw/flow_metrics_*.csv` grow in real time — that's
-`telemetry.py`'s polling loop writing Log A once a second per switch
-port. This is the main hello-world of week 3-4: telemetry running
-against real generated traffic.
+`run_scenario()` blocks for the full `duration_sec` (it also paces a
+real h1<->h2 ping-based latency/jitter sample once a second while
+iperf3's flows run in the background) and returns once done — no need
+to wait manually. After it returns:
+
+```bash
+mininet> h1 pkill iperf3
+mininet> h2 pkill iperf3
+```
+
+before starting the next scenario. Each scenario needs a **fresh
+controller + fresh topology** — `ADAPTIVEQOS_SCENARIO` is read once at
+controller startup, so running two scenarios against the same
+long-lived `ryu-manager` process silently mixes their data into one
+file. Per scenario:
+
+```bash
+# terminal 1
+ADAPTIVEQOS_SCENARIO=<light|moderate|heavy> ADAPTIVEQOS_STP=0 ryu-manager baselines/static_ecmp_only.py
+# terminal 2
+sudo ADAPTIVEQOS_STP=0 python3 topology/topo.py
+```
+
+Watch `data/raw/flow_metrics_*.csv` grow — that's `telemetry.py`'s
+polling loop writing Log A once a second per switch port (throughput
+and packet-loss-pct only; see the note below on latency/jitter). This
+is the main hello-world of week 3-4: telemetry running against real
+generated traffic.
 
 To run the **static ECMP baseline** instead of the learning-switch
 controller (for the eventual Section 8 comparison table), swap which
@@ -72,6 +101,26 @@ ryu-manager baselines/static_ecmp_only.py
 Everything else (`topo.py`, `generate_traffic.py`) is unchanged — same
 topology, same traffic, different controller. That's what makes the
 later ECMP-vs-AdaptiveQoS-Lite comparison a fair one.
+
+## Known issue: `telemetry.py`'s latency/jitter columns
+
+`telemetry.py`'s `latency_ms`/`jitter_ms` (on the `link:<dpid>:<port>`
+rows) come from OpenFlow echo request/reply — the RTT between the Ryu
+controller and each switch's **control channel**, both on localhost.
+That's not the real h1<->h2 data-path experience and doesn't scale
+with congestion, which showed up as jitter/latency *decreasing* from
+light to heavy scenarios. `throughput_mbps` and `packet_loss_pct` on
+those rows are unaffected (from real port-counter deltas), so keep
+using them.
+
+For real latency/jitter, `traffic_gen/generate_traffic.py`'s
+`run_scenario()` now also pings h1->h2 once a second for the scenario's
+duration and logs it to the same file under `flow_id=h1-h2-realtime`.
+Use those rows for latency/jitter in analysis; use the `link:*` rows
+for throughput/loss. (Caveat: this ping is ICMP, so it gets its own
+ECMP hash and may not always land on the same path as the real UDP
+video flow — a fine proxy for now, worth a one-line note in the report
+if asked.)
 
 ## What's built (weeks 1-4) vs. what's next (weeks 5+)
 

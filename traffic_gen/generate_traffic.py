@@ -27,6 +27,7 @@ thing being measured.
 """
 
 import argparse
+import re
 import subprocess
 import time
 
@@ -75,7 +76,57 @@ def start_bulk_tcp_flow(server_ip, duration_sec=60, port=BULK_TCP_PORT, bandwidt
     return subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
-def run_scenario(net, scenario_name, duration_sec=60, server_ip="10.0.0.2"):
+def sample_realtime_latency(net, method, scenario_name, duration_sec=60,
+                             server_ip="10.0.0.2", interval=1.0):
+    """Real h1->h2 latency/jitter, sampled from the Mininet side (which
+    has host access) instead of telemetry.py's OFPEchoRequest/Reply RTT,
+    which only measures the controller<->switch control channel (both
+    on localhost) and never scales with real traffic/congestion -- a
+    Week 3-4 bug found while validating the ECMP baseline's numbers.
+
+    One row per ping to its own Log A file (flow_id="h1-h2-realtime"),
+    via the same evaluation.logger.FlowMetricsLogger used elsewhere so
+    it stays in the same schema. Blocks for duration_sec.
+    """
+    from evaluation.logger import FlowMetricsLogger
+
+    h1 = net.get("h1")
+    logger = FlowMetricsLogger(method=method, scenario=scenario_name)
+    rtts = []
+    n = max(1, int(duration_sec / interval))
+    try:
+        for _ in range(n):
+            loop_start = time.time()
+            out = h1.cmd(f"ping -c 1 -W 1 {server_ip}")
+            m = re.search(r"time=([\d.]+)", out)
+            if m:
+                rtt = float(m.group(1))
+                rtts.append(rtt)
+                jitter = abs(rtts[-1] - rtts[-2]) if len(rtts) >= 2 else 0.0
+                logger.write_row(
+                    flow_id="h1-h2-realtime", flow_type="real_time",
+                    path_chosen="measured", latency_ms=rtt,
+                    jitter_ms=round(jitter, 3), packet_loss_pct=0.0,
+                    throughput_mbps=0.0,
+                )
+            else:
+                logger.write_row(
+                    flow_id="h1-h2-realtime", flow_type="real_time",
+                    path_chosen="measured", latency_ms="", jitter_ms="",
+                    packet_loss_pct=100.0, throughput_mbps=0.0,
+                )
+            # ping -c1 -W1 returns in a few ms on success (the -W1
+            # timeout only applies on loss) -- without this, all `n`
+            # samples fire back-to-back in well under a second and
+            # duration_sec is not actually honored.
+            elapsed = time.time() - loop_start
+            time.sleep(max(0, interval - elapsed))
+    finally:
+        logger.close()
+
+
+def run_scenario(net, scenario_name, duration_sec=60, server_ip="10.0.0.2",
+                  method="ecmp"):
     """Drive the scenario from inside a Mininet script: net is the
     Mininet object from topology/topo.py's build_net(). Client/server
     processes are started via host.cmd() with a trailing '&' (Mininet's
@@ -120,6 +171,13 @@ def run_scenario(net, scenario_name, duration_sec=60, server_ip="10.0.0.2"):
         if bw_cap:
             bulk_cmd += f" -b {bw_cap}"
         h1.cmd(bulk_cmd + " &")
+
+    # Blocks for duration_sec, sampling real h1->h2 latency/jitter via
+    # ping while iperf3's flows run in the background above. This is
+    # also what makes the call as a whole synchronous now -- it used to
+    # return immediately since iperf3 itself is backgrounded with '&'.
+    sample_realtime_latency(net, method, scenario_name, duration_sec=duration_sec,
+                             server_ip=server_ip)
 
     return {"scenario": scenario_name, "duration_sec": duration_sec,
             "num_bulk_flows": num_bulk_flows}
